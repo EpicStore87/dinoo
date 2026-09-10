@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>Dino Online</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <section id="screen-home" class="screen active">
+    <div class="brand">
+      <canvas id="brandDino" class="brand-dino" width="88" height="88"></canvas>
+      <h1>DINO ONLINE</h1>
+      <p class="subtitle">o jogo do dinossauro, agora com amigos</p>
+    </div>
+
+    <div class="field">
+      <label>Seu nome</label>
+      <input id="playerNameInput" maxlength="16" placeholder="Ex: RaptorZeca" autocomplete="off" />
+    </div>
+
+    <div class="field">
+      <label>Cor do seu dinossauro</label>
+      <div id="homeColorPicker" class="color-picker"></div>
+    </div>
+
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnSolo">Jogar Solo</button>
+      <button class="btn btn-secondary" id="btnMulti">Multiplayer</button>
+    </div>
+
+    <div class="highscore" id="homeHighscore"></div>
+  </section>
+
+  <section id="screen-mp-menu" class="screen">
+    <h2>Multiplayer</h2>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnCreateRoom">Criar Sala</button>
+      <button class="btn btn-secondary" id="btnBrowseRooms">Procurar Sala</button>
+      <button class="btn btn-ghost" data-back="screen-home">Voltar</button>
+    </div>
+  </section>
+
+  <section id="screen-create" class="screen">
+    <h2>Criar Sala</h2>
+    <div class="field">
+      <label>Nome da sala</label>
+      <input id="roomNameInput" maxlength="24" placeholder="Ex: Corrida dos Amigos" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>Senha (opcional)</label>
+      <input id="roomPasswordInput" maxlength="20" placeholder="Deixe em branco para sala aberta" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>Número de jogadores: <span id="maxPlayersLabel">4</span></label>
+      <input type="range" id="maxPlayersRange" min="2" max="4" value="4" step="1" />
+    </div>
+    <div class="field field-row">
+      <label for="fillBotsCheck">Completar vagas vazias com bots</label>
+      <input type="checkbox" id="fillBotsCheck" checked />
+    </div>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnConfirmCreate">Criar e Entrar</button>
+      <button class="btn btn-ghost" data-back="screen-mp-menu">Voltar</button>
+    </div>
+    <p class="error" id="createError"></p>
+  </section>
+
+  <section id="screen-browse" class="screen">
+    <h2>Salas disponíveis</h2>
+    <div class="field">
+      <input id="roomSearchInput" placeholder="Buscar sala pelo nome..." autocomplete="off" />
+    </div>
+    <div id="roomList" class="room-list"></div>
+    <div class="menu-buttons">
+      <button class="btn btn-ghost" id="btnRefreshRooms">Atualizar</button>
+      <button class="btn btn-ghost" data-back="screen-mp-menu">Voltar</button>
+    </div>
+  </section>
+
+  <section id="screen-lobby" class="screen">
+    <h2 id="lobbyRoomName">Sala</h2>
+    <p class="lobby-code">Código: <b id="lobbyRoomCode">------</b> <button id="btnCopyCode" class="btn-tiny">copiar</button></p>
+    <div id="lobbyPlayers" class="lobby-players"></div>
+    <div class="field lobby-color-field">
+      <label>Sua cor (cada um precisa de uma diferente)</label>
+      <div id="lobbyColorPicker" class="color-picker"></div>
+    </div>
+    <p class="lobby-hint" id="lobbyHint"></p>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnStartGame">Começar Partida</button>
+      <button class="btn btn-ghost" id="btnLeaveLobby">Sair da Sala</button>
+    </div>
+  </section>
+
+  <section id="screen-game" class="screen screen-game">
+    <div class="hud">
+      <div class="hud-score">HI <span id="hudHigh">00000</span> &nbsp; <span id="hudScore">00000</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="countdown" class="countdown"></div>
+    <div id="waitingOverlay" class="waiting-overlay">
+      <p>Você caiu. Esperando o resto da galera...</p>
+    </div>
+    <div id="gameOverOverlay" class="gameover-overlay">
+      <div class="gameover-title">G A M E&nbsp;&nbsp;O V E R</div>
+      <button type="button" id="btnRestart" class="restart-btn" title="Jogar de novo">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path fill="none" stroke="#f2f2f2" stroke-width="2.2" stroke-linecap="square"
+            d="M7 7a7 7 0 1 1-2 5"/>
+          <path fill="#f2f2f2" d="M7 3.5 L7 9.5 L2.8 6.2 Z"/>
+        </svg>
+      </button>
+      <button type="button" id="btnGameOverMenu" class="gameover-menu-btn">voltar ao menu</button>
+    </div>
+    <div class="controls-hint">Espaço / seta pra cima: pula · seta pra baixo: abaixa · toque: cima pula, baixo abaixa</div>
+    <div class="touch-controls">
+      <button id="touchDown" class="touch-btn">abaixar</button>
+      <button id="touchJump" class="touch-btn">pular</button>
+    </div>
+  </section>
+
+  <section id="screen-results" class="screen">
+    <h2>Resultado</h2>
+    <div id="resultsList" class="results-list"></div>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnPlayAgain">Jogar de novo</button>
+      <button class="btn btn-ghost" id="btnBackHome">Menu Principal</button>
+    </div>
+  </section>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/colors.js"></script>
+<script src="/js/rng.js"></script>
+<script src="/js/sound.js"></script>
+<script src="/js/game.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

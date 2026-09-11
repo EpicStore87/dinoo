@@ -1,15 +1,179 @@
 const path = require('path');
 const express = require('express');
 const http = require('http');
+const session = require('express-session');
 const { Server } = require('socket.io');
 const { obstacleAt, TRACK_START } = require('./public/js/rng.js');
 const { DINO_COLORS, firstFreeColor } = require('./public/js/colors.js');
+const authStore = require('./auth-store.js');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dino-online-troque-essa-chave-em-producao';
+if (!process.env.SESSION_SECRET) {
+  console.warn('[aviso] Usando uma chave de sessão padrão. Defina a variável de ambiente SESSION_SECRET antes de colocar isso no ar de verdade.');
+}
+
+app.use(express.json());
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 1000 * 60 * 60 * 24 * 30, sameSite: 'lax' }, // 30 dias
+}));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------- rotas de conta (e-mail/senha) ----------
+app.post('/api/auth/register', (req, res) => {
+  const result = authStore.register(req.body || {});
+  if (!result.ok) return res.status(400).json(result);
+  req.session.userId = result.user.id;
+  res.json(result);
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const result = authStore.login(req.body || {});
+  if (!result.ok) return res.status(401).json(result);
+  req.session.userId = result.user.id;
+  res.json(result);
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const user = req.session.userId && authStore.findById(req.session.userId);
+  if (!user) return res.json({ ok: false });
+  res.json({ ok: true, user: authStore.publicUser(user) });
+});
+
+app.post('/api/auth/highscore', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Não logado.' });
+  const score = Math.max(0, Math.floor(Number(req.body && req.body.score) || 0));
+  const user = authStore.updateHighScore(req.session.userId, score);
+  if (!user) return res.status(404).json({ ok: false });
+  res.json({ ok: true, user });
+});
+
+app.get('/api/leaderboard', (req, res) => {
+  res.json({ ok: true, top: authStore.getLeaderboard(10) });
+});
+
+app.post('/api/economy/earn', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Não logado.' });
+  const amount = Math.max(0, Math.floor(Number(req.body && req.body.amount) || 0));
+  const user = authStore.addCoins(req.session.userId, amount);
+  if (!user) return res.status(404).json({ ok: false });
+  res.json({ ok: true, user });
+});
+
+app.post('/api/economy/spend', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Não logado.' });
+  const amount = Math.max(0, Math.floor(Number(req.body && req.body.amount) || 0));
+  const result = authStore.spendCoins(req.session.userId, amount);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.post('/api/account/loadout', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Não logado.' });
+  const result = authStore.saveLoadout(req.session.userId, req.body || {});
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+function sessionUser(req) {
+  return req.session.userId && authStore.findById(req.session.userId);
+}
+
+app.get('/api/admin/users', (req, res) => {
+  const user = sessionUser(req);
+  if (!authStore.isAdminUser(user)) return res.status(403).json({ ok: false, error: 'Sem permissao.' });
+  res.json({ ok: true, users: authStore.listUsersAdmin() });
+});
+
+app.post('/api/admin/set-coins', (req, res) => {
+  const user = sessionUser(req);
+  if (!authStore.isAdminUser(user)) return res.status(403).json({ ok: false, error: 'Sem permissao.' });
+  const result = authStore.setCoinsTo(req.body && req.body.target, req.body && req.body.amount, req.body && req.body.mode);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.post('/api/admin/cheats', (req, res) => {
+  const user = sessionUser(req);
+  if (!authStore.isAdminUser(user)) return res.status(403).json({ ok: false, error: 'Sem permissao.' });
+  const result = authStore.setAdminCheats(user.id, req.body || {});
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.post('/api/admin/reset-rank', (req, res) => {
+  const user = sessionUser(req);
+  if (!authStore.isAdminUser(user)) return res.status(403).json({ ok: false, error: 'Sem permissao.' });
+  res.json(authStore.resetRanking());
+});
+
+const onlineUsers = new Map(); // userId -> { socketId, name }
+
+function presenceOf(userId) {
+  try {
+  const online = onlineUsers.has(userId);
+  let roomId = null;
+  let roomState = null;
+  if (online) {
+    const sockId = onlineUsers.get(userId).socketId;
+    const sock = io.sockets.sockets.get(sockId);
+    if (sock && sock.data.roomId) {
+      const room = rooms.get(sock.data.roomId);
+      if (room) {
+        roomId = room.id;
+        roomState = room.state;
+      }
+    }
+  }
+  return { online, roomId, roomState };
+  } catch (e) {
+    return { online: false, roomId: null, roomState: null };
+  }
+}
+
+function decorateFriends(list) {
+  return (list || []).map((f) => Object.assign({}, f, presenceOf(f.id)));
+}
+
+app.get('/api/friends', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Entre na conta para usar amigos.' });
+  const pack = authStore.getFriends(req.session.userId);
+  res.json({
+    ok: true,
+    friends: decorateFriends(pack.friends),
+    incoming: decorateFriends(pack.incoming),
+    outgoing: decorateFriends(pack.outgoing),
+  });
+});
+
+app.post('/api/friends/request', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Entre na conta para usar amigos.' });
+  const result = authStore.requestFriend(req.session.userId, req.body && req.body.name);
+  if (!result.ok) return res.status(400).json(result);
+  const me = authStore.findById(req.session.userId);
+  if (result.sentToId && onlineUsers.has(result.sentToId)) {
+    const info = onlineUsers.get(result.sentToId);
+    io.to(info.socketId).emit('friend:incoming', { fromId: req.session.userId, fromName: me && me.name });
+  }
+  res.json(result);
+});
+
+app.post('/api/friends/accept', (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ ok: false, error: 'Entre na conta para usar amigos.' });
+  const result = authStore.acceptFriend(req.session.userId, req.body && req.body.id);
+  if (!result.ok) return res.status(400).json(result);
+  res.json(result);
+});
 
 const PORT = process.env.PORT || 3000;
 
@@ -36,11 +200,11 @@ function isValidColor(id) {
 
 function speedAt(elapsedMs) {
   const t = elapsedMs / 1000;
-  return 300 + Math.min(t * 18, 260);
+  return 340 + Math.min(t * 36, 360);
 }
 
 class Room {
-  constructor({ id, name, hostId, hostName, password, maxPlayers, fillBots, color }) {
+  constructor({ id, name, hostId, hostName, password, maxPlayers, fillBots, color, skin, accessory, scene }) {
     this.id = id;
     this.name = name || `Sala de ${hostName}`;
     this.hostId = hostId;
@@ -52,7 +216,7 @@ class Room {
     this.seed = null;
     this.startedAt = null;
     this.tickTimer = null;
-    this.addPlayer(hostId, hostName, false, color);
+    this.addPlayer(hostId, hostName, false, color, { skin, accessory, scene });
   }
 
   get humanCount() {
@@ -94,15 +258,23 @@ class Room {
       players: [...this.players.values()].map((p) => ({
         id: p.id, name: p.name, isBot: p.isBot, alive: p.alive,
         distance: Math.floor(p.distance || 0), color: p.color,
+        skin: p.skin || 'classic', accessory: p.accessory || 'none', scene: p.scene || 'desert',
       })),
     };
   }
 
-  addPlayer(id, name, isBot, color) {
+  addPlayer(id, name, isBot, color, cosmetics) {
+    cosmetics = cosmetics || {};
+    const skins = ['classic','godzilla','gold','ghost'];
+    const accs = ['none','straw','cap','bow','flower','glasses','pirate','santa','crown'];
+    const scenes = ['desert','forest','snow','night'];
     this.players.set(id, {
       id, name: (name || 'Jogador').slice(0, 16), isBot,
       alive: true, distance: 0,
       color: this.pickColor(color, id),
+      skin: isBot ? skins[Math.floor(Math.random()*skins.length)] : (cosmetics.skin || 'classic'),
+      accessory: isBot ? accs[Math.floor(Math.random()*accs.length)] : (cosmetics.accessory || 'none'),
+      scene: isBot ? scenes[Math.floor(Math.random()*scenes.length)] : (cosmetics.scene || 'desert'),
       skill: 0.92 + Math.random() * 0.06,
       reacted: -1,
       failAt: 0,
@@ -213,6 +385,7 @@ class Room {
         players: [...this.players.values()].map((p) => ({
           id: p.id, name: p.name, isBot: p.isBot, alive: p.alive,
           distance: Math.floor(p.distance), color: p.color,
+          skin: p.skin, accessory: p.accessory, scene: p.scene,
         })),
       });
 
@@ -227,7 +400,7 @@ class Room {
     this.tickTimer = null;
     this.state = 'finished';
     const results = [...this.players.values()]
-      .map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, score: Math.floor(p.distance), color: p.color }))
+      .map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, score: Math.floor(p.distance), color: p.color, skin: p.skin, accessory: p.accessory, scene: p.scene }))
       .sort((a, b) => b.score - a.score);
     ioRef.to(this.id).emit('game:end', { results });
     setTimeout(() => {
@@ -247,13 +420,21 @@ function broadcastRoomList() {
 }
 
 io.on('connection', (socket) => {
+  socket.on('auth:hello', ({ userId, name }) => {
+    if (!userId) return;
+    const user = authStore.findById(userId);
+    if (!user) return;
+    socket.data.userId = user.id;
+    onlineUsers.set(user.id, { socketId: socket.id, name: user.name || name });
+  });
+
   socket.on('rooms:list', () => {
     socket.emit('rooms:list', [...rooms.values()].map((r) => r.toSummary()));
   });
 
-  socket.on('rooms:create', ({ name, playerName, password, maxPlayers, fillBots, color }, cb) => {
+  socket.on('rooms:create', ({ name, playerName, password, maxPlayers, fillBots, color, skin, accessory, scene }, cb) => {
     const id = makeRoomId();
-    const room = new Room({ id, name, hostId: socket.id, hostName: playerName, password, maxPlayers, fillBots, color });
+    const room = new Room({ id, name, hostId: socket.id, hostName: playerName, password, maxPlayers, fillBots, color, skin, accessory, scene });
     rooms.set(id, room);
     socket.join(id);
     socket.data.roomId = id;
@@ -262,20 +443,52 @@ io.on('connection', (socket) => {
     broadcastRoomList();
   });
 
-  socket.on('rooms:join', ({ roomId, playerName, password, color }, cb) => {
+  socket.on('rooms:join', ({ roomId, playerName, password, color, skin, accessory, scene }, cb) => {
     const room = rooms.get(roomId);
     if (!room) return cb && cb({ ok: false, error: 'Sala nao encontrada.' });
     if (room.state !== 'lobby') return cb && cb({ ok: false, error: 'Essa sala ja comecou a partida.' });
     if (room.password && room.password !== password) return cb && cb({ ok: false, error: 'Senha incorreta.' });
     if (room.humanCount >= room.maxPlayers) return cb && cb({ ok: false, error: 'Sala cheia.' });
 
-    room.addPlayer(socket.id, playerName, false, color);
+    room.addPlayer(socket.id, playerName, false, color, { skin, accessory, scene });
     socket.join(roomId);
     socket.data.roomId = roomId;
     socket.data.playerName = playerName;
     cb && cb({ ok: true, room: room.toRoomState() });
     io.to(roomId).emit('room:update', room.toRoomState());
     broadcastRoomList();
+  });
+
+  socket.on('rooms:join-friend', ({ roomId, playerName, color, skin, accessory, scene }, cb) => {
+    const room = rooms.get(roomId);
+    if (!room) return cb && cb({ ok: false, error: 'Sala nao encontrada.' });
+    if (room.state !== 'lobby') return cb && cb({ ok: false, error: 'O amigo ja esta em partida.' });
+    if (room.humanCount >= room.maxPlayers) return cb && cb({ ok: false, error: 'Sala cheia.' });
+    const myId = socket.data.userId;
+    if (!myId) return cb && cb({ ok: false, error: 'Entre na conta.' });
+    const pack = authStore.getFriends(myId);
+    const friendIds = new Set((pack.friends || []).map((f) => f.id));
+    const friendInRoom = [...room.players.values()].some((p) => {
+      const sock = io.sockets.sockets.get(p.id);
+      return sock && sock.data.userId && friendIds.has(sock.data.userId);
+    });
+    if (!friendInRoom) return cb && cb({ ok: false, error: 'Esse jogador nao e seu amigo nesta sala.' });
+    room.addPlayer(socket.id, playerName, false, color, { skin, accessory, scene });
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+    socket.data.playerName = playerName;
+    cb && cb({ ok: true, room: room.toRoomState() });
+    io.to(roomId).emit('room:update', room.toRoomState());
+    broadcastRoomList();
+  });
+
+  socket.on('chat:send', ({ text }) => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room) return;
+    const clean = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!clean) return;
+    const name = socket.data.playerName || 'Jogador';
+    io.to(room.id).emit('chat:msg', { name, text: clean, at: Date.now() });
   });
 
   socket.on('player:setColor', ({ color }) => {
@@ -303,7 +516,13 @@ io.on('connection', (socket) => {
     if (p && !p.isBot) { p.distance = distance; p.alive = alive; }
   });
 
-  socket.on('disconnect', () => leaveCurrentRoom(socket));
+  socket.on('disconnect', () => {
+    if (socket.data.userId) {
+      const cur = onlineUsers.get(socket.data.userId);
+      if (cur && cur.socketId === socket.id) onlineUsers.delete(socket.data.userId);
+    }
+    leaveCurrentRoom(socket);
+  });
 
   function leaveCurrentRoom(sock) {
     const roomId = sock.data.roomId;

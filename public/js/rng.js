@@ -67,7 +67,7 @@ function obstacleAt(seed, index) {
       width: 42,
       height: 30,
       duckRequired: true,
-      hasShield: index > 3 && r3 > 0.87,
+      hasCoin: index > 3 && r3 > 0.87,
       parts: [],
       gap: Math.round(gap),
     };
@@ -98,7 +98,7 @@ function obstacleAt(seed, index) {
     width,
     height,
     duckRequired: false,
-    hasShield: index > 3 && r3 > 0.87,
+    hasCoin: index > 3 && r3 > 0.87,
     parts,
     gap: Math.round(gap),
   };

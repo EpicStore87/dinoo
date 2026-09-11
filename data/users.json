@@ -1,0 +1,58 @@
+[
+  {
+    "id": "u_mtw86m3h239zit",
+    "email": "miiguellopesss@gmail.com",
+    "name": "Miguel",
+    "passwordHash": "$2a$10$DQgp5J6dJb.p/zic1frFI.0Y55f0s2LhpkMU8Zxm6knfHfcgwY22C",
+    "highScore": 0,
+    "coins": 0,
+    "loadout": {
+      "skins": [
+        "classic"
+      ],
+      "scenes": [
+        "desert"
+      ],
+      "accessories": [
+        "none"
+      ],
+      "skin": "classic",
+      "scene": "desert",
+      "accessory": "none"
+    },
+    "createdAt": 1789086961096,
+    "friends": [
+      "u_mtw87c8wkuv7gl"
+    ],
+    "requests": [],
+    "outgoing": []
+  },
+  {
+    "id": "u_mtw87c8wkuv7gl",
+    "email": "admin@dino.online",
+    "name": "Dino",
+    "passwordHash": "$2a$10$bBntDjdgH3p65G6cIEH.euDgQGwulArbzXN3ISuDma47F4pVS1mJS",
+    "highScore": 0,
+    "coins": 0,
+    "loadout": {
+      "skins": [
+        "classic"
+      ],
+      "scenes": [
+        "desert"
+      ],
+      "accessories": [
+        "none"
+      ],
+      "skin": "classic",
+      "scene": "desert",
+      "accessory": "none"
+    },
+    "createdAt": 1789086994975,
+    "friends": [
+      "u_mtw86m3h239zit"
+    ],
+    "outgoing": [],
+    "requests": []
+  }
+]

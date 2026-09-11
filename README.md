@@ -59,3 +59,25 @@ dino-multiplayer/
         ├── game.js
         └── main.js
 ```
+
+## Login (e-mail e senha)
+
+Agora dá pra criar conta e entrar com e-mail/senha (botão "Entrar / Criar
+conta" no canto do menu principal). Ao logar, seu nome vira o nome da conta
+e seu recorde no modo solo passa a ser salvo no servidor (sincroniza com
+qualquer navegador em que você entrar).
+
+Os usuários ficam guardados em `data/users.json` (criado automaticamente na
+primeira vez que alguém se cadastra) — as senhas são salvas só como hash
+(criptografadas), nunca em texto puro.
+
+**Importante ao hospedar de verdade (Render etc):** defina uma variável de
+ambiente `SESSION_SECRET` com um valor aleatório/secreto (o app funciona sem
+ela, mas usa uma chave padrão só por segurança — troque antes de divulgar o
+link pra galera). No Render isso fica em Settings → Environment.
+
+Login com Google não foi incluído porque exige que você mesmo crie
+credenciais OAuth no Google Cloud Console (Client ID/Secret vinculados à sua
+conta) — se quiser isso depois, me avise quando já tiver escolhido onde vai
+hospedar o jogo, porque a URL de redirecionamento do Google precisa apontar
+pra lá.

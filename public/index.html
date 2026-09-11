@@ -6,11 +6,31 @@
 <title>Dino Online</title>
 <link rel="stylesheet" href="/css/style.css" />
 </head>
-<body>
+<body class="page-home">
+
+<aside id="rankDock" class="side-dock side-dock-left">
+  <button type="button" id="btnToggleRank" class="dock-toggle">RANK</button>
+  <div id="rankPanel" class="rank-panel">
+    <div class="rank-panel-title">RANKING</div>
+    <div class="rank-panel-cols">
+      <div class="rank-col">
+        <div class="rank-col-label">PONTOS</div>
+        <div id="rankPoints" class="rank-col-list"></div>
+      </div>
+      <div class="rank-divider"></div>
+      <div class="rank-col">
+        <div class="rank-col-label">MOEDAS</div>
+        <div id="rankCoins" class="rank-col-list"></div>
+      </div>
+    </div>
+  </div>
+</aside>
 
 <div id="app">
 
+  <!-- HOME -->
   <section id="screen-home" class="screen active">
+    <div id="authBar" class="auth-bar"></div>
     <div class="brand">
       <canvas id="brandDino" class="brand-dino" width="88" height="88"></canvas>
       <h1>DINO ONLINE</h1>
@@ -30,11 +50,87 @@
     <div class="menu-buttons">
       <button class="btn btn-primary" id="btnSolo">Jogar Solo</button>
       <button class="btn btn-secondary" id="btnMulti">Multiplayer</button>
+      <button class="btn btn-shop" id="btnShop">Loja</button>
+      <button class="btn btn-ghost" id="btnFriends" style="display:none">Amigos</button>
+      <button class="btn btn-ghost" id="btnAdmin" style="display:none">Admin</button>
     </div>
-
-    <div class="highscore" id="homeHighscore"></div>
   </section>
 
+  <section id="screen-friends" class="screen">
+    <h2>Amigos</h2>
+    <p class="subtitle">adicione pelo nome da conta. o outro aceita em Pedidos.</p>
+    <div class="field">
+      <label>Adicionar pelo nome da conta</label>
+      <input id="friendNameInput" maxlength="16" placeholder="Nome exato da conta" autocomplete="off" />
+    </div>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnFriendAdd">Enviar pedido</button>
+    </div>
+    <p class="error" id="friendError"></p>
+    <p class="friend-heading">Pedidos</p>
+    <div id="friendIncoming" class="friend-list"></div>
+    <p class="friend-heading">Amigos</p>
+    <div id="friendList" class="friend-list"></div>
+    <div class="menu-buttons">
+      <button class="btn btn-ghost" data-back="screen-home">Voltar</button>
+    </div>
+  </section>
+
+  <section id="screen-admin" class="screen">
+    <h2>Painel admin</h2>
+    <p class="subtitle">so aparece neste e-mail</p>
+    <div class="field">
+      <label>Jogador (nome ou e-mail)</label>
+      <input id="adminTargetInput" placeholder="Miguel ou email@..." autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>Moedas</label>
+      <input id="adminCoinsInput" type="number" min="0" value="1000" />
+    </div>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnAdminSetCoins">Definir moedas</button>
+      <button class="btn btn-secondary" id="btnAdminAddCoins">Somar moedas</button>
+    </div>
+    <div class="field field-row">
+      <label for="adminImmortal">Imortal (nao morre)</label>
+      <input type="checkbox" id="adminImmortal" />
+    </div>
+    <div class="field">
+      <label>Velocidade do jogo: <span id="adminSpeedLabel">1.0x</span></label>
+      <input type="range" id="adminSpeedRange" min="5" max="30" value="10" step="1" />
+    </div>
+    <div class="menu-buttons">
+      <button class="btn btn-secondary" id="btnAdminSaveCheats">Salvar imortal / velocidade</button>
+      <button class="btn btn-ghost" id="btnAdminResetRank">Resetar ranking</button>
+    </div>
+    <p class="error" id="adminError"></p>
+    <div id="adminUsers" class="room-list"></div>
+    <div class="menu-buttons">
+      <button class="btn btn-ghost" data-back="screen-home">Voltar</button>
+    </div>
+  </section>
+
+  <!-- LOJA -->
+  <section id="screen-shop" class="screen">
+    <div class="shop-header">
+      <h2>Loja</h2>
+      <div class="shop-wallet">$ <span id="shopCoinsDisplay">00000</span></div>
+    </div>
+    <div class="shop-tabs">
+      <button type="button" class="shop-tab active" data-tab="skins">Skins</button>
+      <button type="button" class="shop-tab" data-tab="scenes">Cenarios</button>
+      <button type="button" class="shop-tab" data-tab="accessories">Acessorios</button>
+    </div>
+    <div class="shop-equipped">
+      Equipado: <span id="shopEquippedName">Classico</span>
+    </div>
+    <div id="shopGrid" class="shop-grid"></div>
+    <div class="menu-buttons">
+      <button class="btn btn-ghost" data-back="screen-home">Voltar</button>
+    </div>
+  </section>
+
+  <!-- MULTIPLAYER MENU -->
   <section id="screen-mp-menu" class="screen">
     <h2>Multiplayer</h2>
     <div class="menu-buttons">
@@ -90,15 +186,39 @@
       <div id="lobbyColorPicker" class="color-picker"></div>
     </div>
     <p class="lobby-hint" id="lobbyHint"></p>
+    <div class="chat-box">
+      <div id="lobbyChatLog" class="chat-log"></div>
+      <div class="chat-row">
+        <input id="lobbyChatInput" maxlength="80" placeholder="escreve no chat da sala..." autocomplete="off" />
+        <button type="button" class="btn-tiny" id="btnLobbyChatSend">enviar</button>
+      </div>
+    </div>
     <div class="menu-buttons">
       <button class="btn btn-primary" id="btnStartGame">Começar Partida</button>
       <button class="btn btn-ghost" id="btnLeaveLobby">Sair da Sala</button>
     </div>
   </section>
 
+  <!-- JOGO -->
   <section id="screen-game" class="screen screen-game">
     <div class="hud">
+      <div class="hud-coins">$ <span id="hudCoins">00000</span></div>
       <div class="hud-score">HI <span id="hudHigh">00000</span> &nbsp; <span id="hudScore">00000</span></div>
+      <button type="button" id="btnPause" class="btn-tiny" style="display:none">pausar</button>
+    </div>
+    <div id="pauseOverlay" class="pause-menu">
+      <div class="pause-box">
+        <div class="gameover-title">PAUSA</div>
+        <button type="button" id="btnResume" class="btn btn-primary">Continuar</button>
+        <button type="button" id="btnGiveUp" class="btn btn-ghost">Desistir</button>
+      </div>
+    </div>
+    <div id="giveUpOverlay" class="pause-menu">
+      <div class="pause-box">
+        <p>Se sair agora voce perde tudo que ganhou nesta partida: moedas e pontos.</p>
+        <button type="button" id="btnGiveUpYes" class="btn btn-primary">Sair mesmo assim</button>
+        <button type="button" id="btnGiveUpNo" class="btn btn-ghost">Voltar</button>
+      </div>
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="countdown" class="countdown"></div>
@@ -109,8 +229,7 @@
       <div class="gameover-title">G A M E&nbsp;&nbsp;O V E R</div>
       <button type="button" id="btnRestart" class="restart-btn" title="Jogar de novo">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path fill="none" stroke="#f2f2f2" stroke-width="2.2" stroke-linecap="square"
-            d="M7 7a7 7 0 1 1-2 5"/>
+          <path fill="none" stroke="#f2f2f2" stroke-width="2.2" stroke-linecap="square" d="M7 7a7 7 0 1 1-2 5"/>
           <path fill="#f2f2f2" d="M7 3.5 L7 9.5 L2.8 6.2 Z"/>
         </svg>
       </button>
@@ -132,12 +251,51 @@
     </div>
   </section>
 
+  <section id="screen-auth" class="screen">
+    <h2 id="authTitle">Entrar</h2>
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" id="tabLogin">Entrar</button>
+      <button type="button" class="auth-tab" id="tabRegister">Criar conta</button>
+    </div>
+    <div class="field" id="authNameField" style="display:none">
+      <label>Seu nome</label>
+      <input id="authNameInput" maxlength="16" autocomplete="off" placeholder="Ex: RaptorZeca" />
+    </div>
+    <div class="field">
+      <label>E-mail</label>
+      <input id="authEmailInput" type="email" autocomplete="username" placeholder="voce@exemplo.com" />
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input id="authPasswordInput" type="password" autocomplete="current-password" placeholder="mínimo 6 caracteres" />
+    </div>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" id="btnAuthSubmit">Entrar</button>
+      <button class="btn btn-ghost" data-back="screen-home">Voltar</button>
+    </div>
+    <p class="error" id="authError"></p>
+  </section>
+
 </div>
+
+<aside id="wheelDock" class="side-dock side-dock-right">
+  <button type="button" id="btnToggleWheel" class="dock-toggle">ROLETA</button>
+  <div id="wheelPanel" class="wheel-panel">
+    <div class="wheel-title">ROLETA DIARIA</div>
+    <div class="wheel-stage">
+      <canvas id="dailyWheel" width="220" height="260"></canvas>
+    </div>
+    <button type="button" id="btnDailySpin" class="btn btn-primary">Girar gratis</button>
+    <div id="dailySpinMeta" class="wheel-meta">1 giro a cada 24h</div>
+    <div id="dailySpinResult" class="wheel-result"></div>
+  </div>
+</aside>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/colors.js"></script>
 <script src="/js/rng.js"></script>
 <script src="/js/sound.js"></script>
+<script src="/js/auth.js"></script>
 <script src="/js/game.js"></script>
 <script src="/js/main.js"></script>
 </body>
